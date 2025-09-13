@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>باكمان</title>
+  <link rel="stylesheet" href="./shared.css"/>
+  <script defer src="./shared.js"></script>
+</head>
+<body>
+<header class="app-header">
+  <div class="brand"><span class="logo">👾</span><h1>باكمان</h1></div>
+  <nav class="nav">
+    <a href="./index.html">الرئيسية</a>
+    <a href="./calculator.html">آلة حاسبة</a>
+    <a href="./snake.html">الثعبان</a>
+    <a href="./tetris.html">تتريس</a>
+    <a href="./mario.html">سوبر ماريو</a>
+  </nav>
+  <button id="theme-toggle" class="btn">🌓</button>
+</header>
+
+<main class="container">
+  <div class="canvas-wrap">
+    <canvas id="pacman" width="448" height="496"></canvas>
+    <div class="score pane">
+      <div class="stack">
+        <div class="controls">
+          <div class="field">
+            <label>الصعوبة</label>
+            <select id="difficulty">
+              <option value="slow">سهل</option>
+              <option value="normal" selected>عادي</option>
+              <option value="fast">صعب</option>
+            </select>
+          </div>
+          <button id="start" class="btn">بدء/إيقاف</button>
+          <button id="reset" class="btn secondary">إعادة</button>
+        </div>
+        <div>النقاط: <strong id="score">0</strong></div>
+        <div>الأرواح: <strong id="lives">3</strong></div>
+        <div class="badge">الأسهم للحركة</div>
+      </div>
+      <div class="touchpad">
+        <span></span><button data-dir="up">⬆️</button><span></span>
+        <button data-dir="left">⬅️</button><span></span><button data-dir="right">➡️</button>
+        <span></span><button data-dir="down">⬇️</button><span></span>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="app-footer">
+  <small>جميع الحقوق محفوظة 2025 — المطور ليث - مطور تطبيق رفيق نفسه😊</small>
+</footer>
+
+<script>
+(function(){
+  const canvas = document.getElementById('pacman');
+  const ctx = canvas.getContext('2d');
+  const CELL = 16, COLS = canvas.width / CELL, ROWS = canvas.height / CELL;
+
+  // 0 empty, 1 wall, 2 dot, 3 power
+  const LEVEL = [
+    "11111111111111111111",
+    "1........11........1",
+    "1.111.11111.111.1111",
+    "1o111.11111.111.1111",
+    "1..................1",
+    "1.111.11.1111.11.111",
+    "1....o..1PP1..o....1",
+    "11111.11.11.11.11111",
+    "11111.11....11.11111",
+    "1..................1",
+    "1.111.11111.111.1111",
+    "1o..1.....P.....1..1",
+    "111.1.11111111.1.111",
+    "1....1....11....1..1",
+    "1.1111111.11.1111111",
+    "1..................1",
+    "11111111111111111111",
+  ].map(r=>r.split(''));
+  const grid = Array.from({length:ROWS}, (_,y)=>Array.from({length:COLS},(_,x)=>{
+    const t = LEVEL[y][x];
+    if (t==='1') return 1;
+    if (t==='o') return 3;
+    if (t==='P') return 0; // pen area
+    return 2;
+  }));
+
+  let pac = {x:10, y:12, dx:0, dy:0};
+  let ghosts = [
+    {x:10,y:8, color:'#ef4444', dx:0,dy:0},
+    {x:9,y:8, color:'#22c55e', dx:0,dy:0},
+    {x:11,y:8, color:'#3b82f6', dx:0,dy:0},
+  ];
+  let score=0, lives=3, running=false, speed=3, timer=null, frightened=0;
+
+  function wrap(p){ if (p.x<0) p.x=COLS-1; if (p.x>=COLS) p.x=0; if (p.y<0) p.y=ROWS-1; if (p.y>=ROWS) p.y=0; }
+  function can(x,y){ return grid[y] && grid[y][x]!==1; }
+
+  function step(){
+    // pac move if next is free
+    const nx = pac.x + pac.dx, ny = pac.y + pac.dy;
+    if (can(nx,ny)) { pac.x=nx; pac.y=ny; wrap(pac); }
+    // eat
+    const g = grid[pac.y][pac.x];
+    if (g===2){ grid[pac.y][pac.x]=0; score+=10; }
+    if (g===3){ grid[pac.y][pac.x]=0; score+=50; frightened=100; }
+
+    // ghosts simple AI: random turn or chase horizontally
+    ghosts.forEach((gh,i)=>{
+      if (Math.random()<0.2){ // sometimes change direction
+        const dirs = [{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1}].filter(d=>can(gh.x+d.dx, gh.y+d.dy));
+        if (dirs.length) { const d = dirs[Math.floor(Math.random()*dirs.length)]; gh.dx=d.dx; gh.dy=d.dy; }
+      } else {
+        const dx = Math.sign(pac.x - gh.x), dy = Math.sign(pac.y - gh.y);
+        const tryDirs = Math.random()<0.5 ? [{dx,dy:0},{dx:0,dy}] : [{dx:0,dy},{dx,dy:0}];
+        const d = tryDirs.find(d=>can(gh.x+d.dx, gh.y+d.dy)) || {dx:0,dy:0};
+        if (d.dx||d.dy){ gh.dx=d.dx; gh.dy=d.dy; }
+      }
+      const nx = gh.x + gh.dx, ny = gh.y + gh.dy;
+      if (can(nx,ny)){ gh.x=nx; gh.y=ny; wrap(gh); }
+    });
+
+    // collisions
+    ghosts.forEach((gh)=>{
+      if (gh.x===pac.x && gh.y===pac.y){
+        if (frightened>0){ score+=200; gh.x=10; gh.y=8; gh.dx=gh.dy=0; }
+        else { lives--; if (lives<=0) return gameOver(); resetPositions(); }
+      }
+    });
+
+    if (frightened>0) frightened--;
+    draw();
+  }
+
+  function draw(){
+    ctx.fillStyle='#000'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    for (let y=0;y<ROWS;y++){
+      for (let x=0;x<COLS;x++){
+        if (grid[y][x]===1){ ctx.fillStyle='#1f2937'; ctx.fillRect(x*CELL,y*CELL,CELL,CELL); }
+        if (grid[y][x]===2){ ctx.fillStyle='#f1f5f9'; ctx.beginPath(); ctx.arc(x*CELL+8,y*CELL+8,2,0,Math.PI*2); ctx.fill(); }
+        if (grid[y][x]===3){ ctx.fillStyle='#f59e0b'; ctx.beginPath(); ctx.arc(x*CELL+8,y*CELL+8,4,0,Math.PI*2); ctx.fill(); }
+      }
+    }
+    // pac
+    ctx.fillStyle='#fde047'; ctx.beginPath(); ctx.arc(pac.x*CELL+8, pac.y*CELL+8, 7, 0.2*Math.PI, 1.8*Math.PI); ctx.lineTo(pac.x*CELL+8, pac.y*CELL+8); ctx.fill();
+    // ghosts
+    ghosts.forEach(gh=>{
+      ctx.fillStyle = frightened>0 ? '#60a5fa' : gh.color;
+      ctx.fillRect(gh.x*CELL+2, gh.y*CELL+4, CELL-4, CELL-4);
+    });
+    document.getElementById('score').textContent = score;
+    document.getElementById('lives').textContent = lives;
+  }
+
+  function loop(){ step(); }
+  function gameOver(){
+    running=false; clearInterval(timer);
+    ctx.fillStyle='rgba(0,0,0,.6)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#fff'; ctx.font='24px sans-serif'; ctx.fillText('انتهت اللعبة! اضغط إعادة.', 60, canvas.height/2);
+  }
+  function resetPositions(){
+    pac = {x:10, y:12, dx:0, dy:0};
+    ghosts = [
+      {x:10,y:8, color:'#ef4444', dx:0,dy:0},
+      {x:9,y:8, color:'#22c55e', dx:0,dy:0},
+      {x:11,y:8, color:'#3b82f6', dx:0,dy:0},
+    ];
+  }
+  function reset(){
+    // إعادة النقاط فقط وإبقاء المستوى كما هو
+    score=0; lives=3; resetPositions(); draw();
+  }
+
+  document.getElementById('start').onclick=()=>{
+    running=!running;
+    if (running){
+      const diff = document.getElementById('difficulty').value;
+      speed = diff==='slow'? 200 : diff==='fast' ? 80 : 120;
+      timer = setInterval(loop, speed);
+    } else clearInterval(timer);
+  };
+  document.getElementById('reset').onclick=()=>{ clearInterval(timer); running=false; reset(); };
+
+  window.addEventListener('keydown',(e)=>{
+    if (e.key==='ArrowUp' && can(pac.x, pac.y-1)) pac.dx=0, pac.dy=-1;
+    if (e.key==='ArrowDown' && can(pac.x, pac.y+1)) pac.dx=0, pac.dy=1;
+    if (e.key==='ArrowLeft' && can(pac.x-1, pac.y)) pac.dx=-1, pac.dy=0;
+    if (e.key==='ArrowRight' && can(pac.x+1, pac.y)) pac.dx=1, pac.dy=0;
+  });
+  document.querySelectorAll('.touchpad button[data-dir]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const d=b.getAttribute('data-dir');
+      if (d==='up' && can(pac.x, pac.y-1)) pac.dx=0, pac.dy=-1;
+      if (d==='down' && can(pac.x, pac.y+1)) pac.dx=0, pac.dy=1;
+      if (d==='left' && can(pac.x-1, pac.y)) pac.dx=-1, pac.dy=0;
+      if (d==='right' && can(pac.x+1, pac.y)) pac.dx=1, pac.dy=0;
+    });
+  });
+
+  draw();
+})();
+</script>
+</body>
+</html>
