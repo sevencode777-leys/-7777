@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>سوبر ماريو</title>
+  <link rel="stylesheet" href="./shared.css"/>
+  <script defer src="./shared.js"></script>
+</head>
+<body>
+<header class="app-header">
+  <div class="brand"><span class="logo">🍄</span><h1>سوبر ماريو</h1></div>
+  <nav class="nav">
+    <a href="./index.html">الرئيسية</a>
+    <a href="./calculator.html">آلة حاسبة</a>
+    <a href="./snake.html">الثعبان</a>
+    <a href="./tetris.html">تتريس</a>
+    <a href="./pacman.html">باكمان</a>
+  </nav>
+  <button id="theme-toggle" class="btn">🌓</button>
+</header>
+
+<main class="container">
+  <div class="canvas-wrap">
+    <canvas id="mario" width="640" height="360"></canvas>
+    <div class="score pane">
+      <div class="stack">
+        <div class="controls">
+          <div class="field">
+            <label>الصعوبة</label>
+            <select id="difficulty">
+              <option value="easy">سهل</option>
+              <option value="normal" selected>عادي</option>
+              <option value="hard">صعب</option>
+            </select>
+          </div>
+          <button id="start" class="btn">بدء/إيقاف</button>
+          <button id="reset" class="btn secondary">إعادة</button>
+        </div>
+        <div>النقاط: <strong id="score">0</strong></div>
+        <div class="badge">المفاتيح: ← → للحركة، Space للقفز</div>
+      </div>
+      <div class="touchpad">
+        <span></span><button data-act="jump">⤴️</button><span></span>
+        <button data-act="left">⬅️</button><span></span><button data-act="right">➡️</button>
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="app-footer">
+  <small>جميع الحقوق محفوظة 2025 — المطور ليث - مطور تطبيق رفيق نفسه😊</small>
+</footer>
+
+<script>
+(function(){
+  const canvas = document.getElementById('mario');
+  const ctx = canvas.getContext('2d');
+  const G = 0.5; // gravity
+  let running=false, score=0, speed=2, last=0, keys={left:false,right:false}, timer=null;
+
+  // world
+  const groundY = canvas.height - 40;
+  const player = {x:40, y:groundY-24, w:20, h:24, vx:0, vy:0, onGround:true};
+  let platforms = [
+    {x:0,y:groundY,w:2000,h:40, color:'#1e293b'},
+    {x:220,y:groundY-80,w:100,h:10, color:'#334155'},
+    {x:360,y:groundY-120,w:100,h:10, color:'#334155'},
+    {x:520,y:groundY-60,w:120,h:10, color:'#334155'},
+  ];
+  let enemies = [
+    {x:300,y:groundY-16,w:16,h:16, vx:-1.2},
+    {x:560,y:groundY-16,w:16,h:16, vx:1.0},
+  ];
+  let camX=0;
+
+  function rectsCollide(a,b){ return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y; }
+
+  function reset(){
+    score=0; player.x=40; player.y=groundY-24; player.vx=0; player.vy=0; player.onGround=true; camX=0;
+  }
+
+  function update(){
+    // difficulty
+    const diff = document.getElementById('difficulty').value;
+    speed = diff==='easy'? 1.8 : diff==='hard'? 2.5 : 2.1;
+
+    // input
+    player.vx = 0;
+    if (keys.left) player.vx = -3*speed;
+    if (keys.right) player.vx = 3*speed;
+
+    // physics
+    player.vy += G;
+    player.x += player.vx;
+    player.y += player.vy;
+
+    // collide with platforms
+    player.onGround=false;
+    platforms.forEach(p=>{
+      // horizontal
+      if (rectsCollide(player, p)){
+        // resolve from top
+        if (player.vy>0 && player.y+player.h - p.y < 20){
+          player.y = p.y - player.h; player.vy=0; player.onGround=true;
+        } else if (player.vx>0){ player.x = p.x - player.w; }
+        else if (player.vx<0){ player.x = p.x + p.w; }
+      }
+    });
+
+    // enemies move
+    enemies.forEach(en=>{
+      en.x += en.vx*speed;
+      if (en.x<0 || en.x>1800) en.vx*=-1;
+      // collision with player
+      if (rectsCollide(player,en)){
+        if (player.vy>0){ // stomp
+          score += 100; en.x = -9999; player.vy = -6;
+        } else {
+          // damage
+          score = Math.max(0, score-200);
+          player.x = 40; player.y=groundY-24; player.vx=player.vy=0;
+        }
+      }
+    });
+
+    // fall dead
+    if (player.y > canvas.height+50){ reset(); }
+
+    // camera
+    camX = Math.max(0, player.x - 160);
+  }
+
+  function draw(){
+    ctx.fillStyle = '#0b0b0b'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    // sky gradient
+    const g = ctx.createLinearGradient(0,0,0,canvas.height);
+    g.addColorStop(0,'#0f172a'); g.addColorStop(1,'#1f2937');
+    ctx.fillStyle=g; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    ctx.save();
+    ctx.translate(-camX,0);
+
+    // platforms
+    platforms.forEach(p=>{ ctx.fillStyle=p.color; ctx.fillRect(p.x,p.y,p.w,p.h); });
+
+    // enemies
+    enemies.forEach(en=>{ ctx.fillStyle='#ef4444'; ctx.fillRect(en.x,en.y,en.w,en.h); });
+
+    // player
+    ctx.fillStyle='#fbbf24'; ctx.fillRect(player.x, player.y, player.w, player.h);
+
+    ctx.restore();
+
+    // HUD
+    document.getElementById('score').textContent = score;
+  }
+
+  function loop(){ update(); draw(); }
+
+  function start(){
+    if (running) return;
+    running=true; timer = setInterval(loop, 16);
+  }
+  function stop(){ running=false; clearInterval(timer); }
+  document.getElementById('start').onclick=()=>{ running? stop(): start(); };
+  document.getElementById('reset').onclick=()=>{ stop(); reset(); draw(); };
+
+  window.addEventListener('keydown',(e)=>{
+    if (e.key==='ArrowLeft') keys.left=true;
+    if (e.key==='ArrowRight') keys.right=true;
+    if (e.code==='Space' && player.onGround){ player.vy = -9.5; player.onGround=false; }
+  });
+  window.addEventListener('keyup',(e)=>{
+    if (e.key==='ArrowLeft') keys.left=false;
+    if (e.key==='ArrowRight') keys.right=false;
+  });
+  document.querySelectorAll('.touchpad button').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const a=b.getAttribute('data-act');
+      if (a==='left') keys.left=true, setTimeout(()=>keys.left=false,150);
+      if (a==='right') keys.right=true, setTimeout(()=>keys.right=false,150);
+      if (a==='jump' && player.onGround) player.vy=-9.5, player.onGround=false;
+    });
+  });
+
+  reset(); draw();
+})();
+</script>
+</body>
+</html>
