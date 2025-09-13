@@ -1,0 +1,83 @@
+/* أساسيات وثيمين (فاتح/غامق) + تخطيط عام + تجاوب */
+:root {
+  --bg: #0e0f13;
+  --card: #171923;
+  --text: #f1f5f9;
+  --muted: #94a3b8;
+  --accent: #7c5cff;
+  --border: #232634;
+  --good: #22c55e;
+  --bad: #ef4444;
+}
+:root.light {
+  --bg: #f6f7fb;
+  --card: #ffffff;
+  --text: #0f172a;
+  --muted: #475569;
+  --accent: #6d28d9;
+  --border: #e5e7eb;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+  background: var(--bg);
+  color: var(--text);
+}
+.app-header, .app-footer { border-bottom: 1px solid var(--border); background: var(--card); }
+.app-footer { border-top: 1px solid var(--border); border-bottom: none; }
+.app-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; position: sticky; top: 0; z-index: 20;
+}
+.brand { display: flex; gap: 10px; align-items: center; }
+.brand .logo { font-size: 22px; }
+.nav { display: flex; gap: 12px; flex-wrap: wrap; }
+.nav a { color: var(--text); text-decoration: none; padding: 6px 10px; border-radius: 8px; }
+.nav a:hover { background: var(--border); }
+.btn { background: var(--accent); color: white; border: none; padding: 8px 12px; border-radius: 10px; cursor: pointer; }
+.btn.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn.ghost { background: transparent; color: var(--text); }
+.container { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+.hero h2 { margin-top: 0; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 18px; display: block; text-decoration: none; color: var(--text); transition: transform .15s ease, box-shadow .15s ease; }
+.card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+.card .icon { font-size: 28px; }
+.row { display: flex; gap: 12px; align-items: center; }
+.stack { display: flex; flex-direction: column; gap: 12px; }
+.pane { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
+.app-footer { text-align: center; padding: 16px; margin-top: 36px; }
+small { color: var(--muted); }
+
+/* آلة حاسبة */
+.calc { display: grid; grid-template-columns: 1.2fr .8fr; gap: 16px; }
+@media (max-width: 900px) { .calc { grid-template-columns: 1fr; } }
+.display { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; font-size: 28px; word-break: break-all; min-height: 80px; display:flex; align-items:center; justify-content:flex-end; }
+.keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.key { padding: 14px; border-radius: 12px; border: 1px solid var(--border); background: #1d2030; color: var(--text); cursor: pointer; }
+:root.light .key { background: #f2f4f8; }
+.key.op { background: #2a2f47; }
+:root.light .key.op { background: #ece9ff; }
+.key.eq { background: var(--accent); color: white; }
+.history { max-height: 380px; overflow: auto; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.history-item { display:flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--border); }
+.history-item .expr { color: var(--muted); }
+.history-actions { display:flex; gap:6px; }
+
+/* لوحات التحكم للألعاب */
+.controls { display:flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.badge { border:1px solid var(--border); background: var(--card); border-radius: 999px; padding: 4px 10px; font-size: 12px; color: var(--muted); }
+.field { display:flex; flex-direction: column; gap:6px; }
+label { font-size: 14px; color: var(--muted); }
+select, input[type=number] { background: var(--card); color: var(--text); border:1px solid var(--border); border-radius: 10px; padding:8px 10px; }
+
+/* عناصر تحكم لمسية */
+.touchpad { display:grid; grid-template-columns: repeat(3,56px); grid-template-rows: repeat(3,56px); gap:6px; justify-content:center; margin-top: 12px; }
+.touchpad button { border-radius: 12px; border:1px solid var(--border); background: var(--card); color: var(--text); }
+
+/* كانفاس الألعاب */
+.canvas-wrap { display:flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+canvas { background:#000; border-radius: 12px; border:1px solid var(--border); }
+.score { min-width: 220px; }
