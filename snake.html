@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>الثعبان</title>
+  <link rel="stylesheet" href="./shared.css"/>
+  <script defer src="./shared.js"></script>
+</head>
+<body>
+<header class="app-header">
+  <div class="brand"><span class="logo">🐍</span><h1>الثعبان</h1></div>
+  <nav class="nav">
+    <a href="./index.html">الرئيسية</a>
+    <a href="./calculator.html">آلة حاسبة</a>
+    <a href="./tetris.html">تتريس</a>
+    <a href="./pacman.html">باكمان</a>
+    <a href="./mario.html">سوبر ماريو</a>
+  </nav>
+  <button id="theme-toggle" class="btn">🌓</button>
+</header>
+
+<main class="container">
+  <div class="canvas-wrap">
+    <canvas id="game" width="420" height="420"></canvas>
+    <div class="score pane">
+      <div class="stack">
+        <div class="row controls">
+          <div class="field">
+            <label>الصعوبة</label>
+            <select id="difficulty">
+              <option value="6">سهل</option>
+              <option value="10" selected>عادي</option>
+              <option value="14">صعب</option>
+            </select>
+          </div>
+          <button id="start" class="btn">بدء/إيقاف</button>
+          <button id="reset" class="btn secondary">إعادة</button>
+        </div>
+        <div>النتيجة: <strong id="score">0</strong></div>
+        <div>أفضل نتيجة: <strong id="best">0</strong></div>
+      </div>
+      <div class="touchpad">
+        <span></span><button data-dir="up">⬆️</button><span></span>
+        <button data-dir="left">⬅️</button><span></span><button data-dir="right">➡️</button>
+        <span></span><button data-dir="down">⬇️</button><span></span>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="app-footer">
+  <small>جميع الحقوق محفوظة 2025 — المطور ليث - مطور تطبيق رفيق نفسه😊</small>
+</footer>
+
+<script>
+(function(){
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const CELL = 20, COLS = canvas.width / CELL, ROWS = canvas.height / CELL;
+  let snake, dir, food, running=false, tickMs=100, score=0, best=Number(localStorage.getItem('snake_best')||0), timer=null;
+
+  function reset() {
+    snake = [{x:10,y:10},{x:9,y:10},{x:8,y:10}];
+    dir = {x:1,y:0};
+    score = 0;
+    placeFood();
+    draw();
+  }
+
+  function placeFood() {
+    while (true) {
+      const f = { x: Utils.randInt(0,COLS-1), y: Utils.randInt(0,ROWS-1) };
+      if (!snake.some(s => s.x===f.x && s.y===f.y)) { food=f; break; }
+    }
+  }
+
+  function step() {
+    const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+    // walls
+    if (head.x<0 || head.y<0 || head.x>=COLS || head.y>=ROWS) return gameOver();
+    // self
+    if (snake.some(s => s.x===head.x && s.y===head.y)) return gameOver();
+    snake.unshift(head);
+    if (head.x===food.x && head.y===food.y) {
+      score += 10;
+      if (score>best){best=score; localStorage.setItem('snake_best', String(best));}
+      placeFood();
+    } else {
+      snake.pop();
+    }
+    draw();
+  }
+
+  function draw() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    // grid
+    ctx.fillStyle = '#0b0b0b';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    // food
+    ctx.fillStyle = '#ef4444';
+    ctx.fillRect(food.x*CELL, food.y*CELL, CELL, CELL);
+    // snake
+    ctx.fillStyle = '#22c55e';
+    snake.forEach((s,i) => {
+      ctx.fillRect(s.x*CELL+1, s.y*CELL+1, CELL-2, CELL-2);
+    });
+    document.getElementById('score').textContent = score;
+    document.getElementById('best').textContent = best;
+  }
+
+  function gameOver() {
+    running = false;
+    if (timer) clearInterval(timer);
+    ctx.fillStyle = 'rgba(0,0,0,.5)';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle = '#fff';
+    ctx.font = '24px sans-serif';
+    ctx.fillText('انتهت اللعبة! اضغط إعادة.', 80, canvas.height/2);
+  }
+
+  function setDir(nx, ny) {
+    // منع الرجوع للخلف
+    if (snake.length>1 && snake[0].x + nx === snake[1].x && snake[0].y + ny === snake[1].y) return;
+    dir = {x:nx, y:ny};
+  }
+
+  // controls
+  document.getElementById('start').onclick = () => {
+    running = !running;
+    if (running) {
+      const spd = Number(document.getElementById('difficulty').value);
+      tickMs = Math.round(1000/spd);
+      timer = setInterval(step, tickMs);
+    } else {
+      clearInterval(timer);
+    }
+  };
+  document.getElementById('reset').onclick = () => { clearInterval(timer); running=false; reset(); };
+
+  // keyboard
+  window.addEventListener('keydown', (e) => {
+    if (e.key==='ArrowUp') setDir(0,-1);
+    else if (e.key==='ArrowDown') setDir(0,1);
+    else if (e.key==='ArrowLeft') setDir(-1,0);
+    else if (e.key==='ArrowRight') setDir(1,0);
+  });
+
+  // touch
+  document.querySelectorAll('.touchpad button[data-dir]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const d = b.getAttribute('data-dir');
+      if (d==='up') setDir(0,-1);
+      if (d==='down') setDir(0,1);
+      if (d==='left') setDir(-1,0);
+      if (d==='right') setDir(1,0);
+    });
+  });
+
+  reset();
+})();
+</script>
+</body>
+</html>
