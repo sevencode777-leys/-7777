@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>آلة حاسبة</title>
+  <link rel="stylesheet" href="./shared.css" />
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script defer src="./shared.js"></script>
+</head>
+<body>
+<header class="app-header">
+  <div class="brand"><span class="logo">🧮</span><h1>آلة حاسبة</h1></div>
+  <nav class="nav">
+    <a href="./index.html">الرئيسية</a>
+    <a href="./snake.html">الثعبان</a>
+    <a href="./tetris.html">تتريس</a>
+    <a href="./pacman.html">باكمان</a>
+    <a href="./mario.html">سوبر ماريو</a>
+  </nav>
+  <button id="theme-toggle" class="btn">🌓</button>
+</header>
+
+<main class="container">
+  <div id="root"></div>
+</main>
+
+<footer class="app-footer">
+  <small>جميع الحقوق محفوظة 2025 — المطور ليث - مطور تطبيق رفيق نفسه😊</small>
+</footer>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+const KEYS = [
+  '(', ')', '√', '^',
+  '7', '8', '9', '/',
+  '4', '5', '6', '*',
+  '1', '2', '3', '-',
+  '0', '.', '%', '+',
+];
+
+function sanitize(expr) {
+  // مسموح فقط بالأرقام والعوامات والرموز الحسابية المذكورة
+  if (!/^[0-9\\s+\\-*/().%^√]*$/.test(expr)) return null;
+  return expr
+    .replace(/√/g, 'Math.sqrt')
+    .replace(/\^/g, '**');
+}
+
+function safeEval(expr) {
+  const s = sanitize(expr);
+  if (s == null) throw new Error('تعبير غير صالح');
+  // منع أشياء غريبة: تأكد أنه ما زال مكوناً من الرموز المسموحة بعد الاستبدال
+  if (!/^[0-9\\s+\\-*/().%*^Math.sqrt]*$/.test(s)) throw new Error('تعبير غير صالح');
+  // استخدم Function لتقييم بسيط
+  // دعم % كنسبة: نحول a % b إلى (a * b / 100) فقط في حالة a op b% (اختصار)
+  // هنا نترك % كما هو في JS (باقي القسمة)، لكن زر % أدناه سنعطيه معنى النسبة عند إدراجه
+  return Function(`\"use strict\"; return (${s})`)();
+}
+
+const HISTORY_KEY = 'calc_history_v1';
+
+function Calculator() {
+  const [expr, setExpr] = useState('');
+  const [result, setResult] = useState('0');
+  const [history, setHistory] = useState([]);
+
+  useEffect(() => {
+    setHistory(Utils.load(HISTORY_KEY, []));
+  }, []);
+
+  function pushHistory(e, r) {
+    const entry = { expr: e, result: String(r), ts: Date.now() };
+    const next = [entry, ...history].slice(0, 100);
+    setHistory(next);
+    Utils.save(HISTORY_KEY, next);
+  }
+
+  function onKeyClick(k) {
+    if (k === '%') {
+      // حوّل x + y% إلى x + (x*y/100) عند الإدراج البسيط
+      const m = expr.match(/(.*?)(\\d+\\.?\\d*)$/);
+      if (m) {
+        const base = m[1];
+        const y = m[2];
+        return setExpr(`${base}(${y}/100)`);
+      }
+    }
+    setExpr(expr + k);
+  }
+
+  function clearAll() {
+    setExpr(''); setResult('0');
+  }
+
+  function delOne() {
+    setExpr(expr.slice(0, -1));
+  }
+
+  function compute() {
+    try {
+      const r = safeEval(expr);
+      setResult(String(r));
+      pushHistory(expr, r);
+    } catch (e) {
+      setResult('خطأ');
+    }
+  }
+
+  function useHistory(item) {
+    setExpr(item.expr);
+    setResult(item.result);
+  }
+
+  return (
+    <div className="calc">
+      <div className="stack">
+        <div className="display" aria-live="polite">{expr || '0'}</div>
+        <div className="row">
+          <button className="btn secondary" onClick={clearAll}>مسح</button>
+          <button className="btn secondary" onClick={delOne}>حذف</button>
+          <button className="btn" onClick={compute} title="يساوي">=</button>
+        </div>
+        <div className="keys">
+          {KEYS.map(k => (
+            <button key={k} className={`key ${'+-*/^√%'.includes(k) ? 'op':''} ${k==='='?'eq':''}`} onClick={() => onKeyClick(k)}>
+              {k}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="pane">
+        <div className="row" style={{justifyContent:'space-between', marginBottom:8}}>
+          <h3 style={{margin:0}}>النتيجة: {result}</h3>
+          <span className="badge">السجل</span>
+        </div>
+        <div className="history">
+          {history.length === 0 ? <div>لا يوجد سجل بعد</div> : history.map((h) => (
+            <div className="history-item" key={h.ts}>
+              <div>
+                <div className="expr">{h.expr}</div>
+                <div>= {h.result}</div>
+              </div>
+              <div className="history-actions">
+                <button className="btn ghost" onClick={() => useHistory(h)}>استخدام</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<Calculator />);
+</script>
+</body>
+</html>
