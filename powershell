@@ -1,0 +1,1 @@
+New-Item -ItemType Directory -Path "/repo" -Force; New-Item -ItemType Directory -Path "/repo/src" -Force; New-Item -ItemType Directory -Path "/repo/src/pages" -Force; New-Item -ItemType Directory -Path "/repo/src/components" -Force; New-Item -ItemType Directory -Path "/repo/assets" -Force; New-Item -ItemType Directory -Path "/repo/.zencoder/rules" -Force
